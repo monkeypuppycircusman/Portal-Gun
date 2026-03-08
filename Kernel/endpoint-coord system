@@ -1,0 +1,13 @@
+import numpy as np
+
+def place_portal(position, direction, surface_normal):
+    # Raycast to hit point (simplified)
+    hit_pos = position + t * direction  # t from ray-surface intersection
+    return {'pos': hit_pos, 'normal': surface_normal}
+
+def traverse_portal(vel_in, portal_in_normal, portal_out_normal, stability_factor):
+    # Project vel_in onto in-normal, reflect, project to out
+    parallel = np.dot(vel_in, portal_in_normal) * portal_in_normal
+    perp = vel_in - parallel
+    vel_out = -parallel + perp  # flip parallel component
+    return vel_out * stability_factor  # e.g. |R_pruned| or decay

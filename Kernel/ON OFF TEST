@@ -1,0 +1,71 @@
+Test Π=(0,1,0) in code
+Test results for Π = (0, 1, 0)
+This corresponds to:
+l = 0 → planetary layer → k = 2 (silver metallic ratio)
+n = 1 → first branch (odd → prune/invert flavor)
+m = 0 → decay band ρ(m) = 23 (strongest / longest-lived envelope)
+Computed values (with shear enabled, as in the default prototype):
+metallic(k=2) ≈ 2.41421356237
+R_base (before shear) ≈ 1.20710678119
+shear_base(n=1) ≈ 0.932032 (positive modulation)
+R_base after shear ≈ 1.20710678119 × 0.932032 ≈ 1.1249
+R_gate (odd n) ≈ 1.1249 × (-2.94213132003) ≈ -3.310082
+No pruning triggered (|R_gate| ≈ 3.31 < 13)
+R_pruned = -3.310082
+|R_pruned| ≈ 3.310082
+State = OPEN (since 3.31 > 0.5)
+rho(m=0) = 23 (full strength decay band — slow fade, long resonance lifetime)
+What this means in the ultrasonic tube:
+OPEN state → piezo will be driven strongly (high amplitude vibration/inaudible ultrasound output).
+Frequency scaling ≈ PWM_FREQ_BASE × (metallic(2) / 1) ≈ 40 kHz × 2.414 ≈ 96.57 kHz base (plus shear FM wobble of ~0.932 × 200 Hz ≈ ±186 Hz deviation).
+Envelope → very slow decay (decay_rate = 23 / DECAY_DIV ≈ 4.6 if DECAY_DIV=5 → lifetime several seconds before noticeable fade).
+Flavor → odd n=1 gives inverted/prune character: in code, this could bias duty cycle lower (e.g., 25% instead of 50%) for a sharper, more "pulsed" ultrasonic burst.
+In the Arduino sketch:
+LED on pin 13 lights up.
+PWM on pin 9 runs at ~96–97 kHz with ~50% duty (or adjusted for odd n).
+If you press the button enough times to reach n=1 again, you'll hear/feel the strong, slowly decaying ultrasonic "hum" (vibration on the piezo surface).
+If shear were off → R_pruned jumps to ≈ -3.551 (even stronger OPEN, no FM wobble).
+This is a solid resonance corridor — high |R_pruned| + low m = one of the most stable, longest-ringing states in the grammar. Perfect for testing the "tunneling" feel: strong output that gradually fades like a cosmic velocity band decaying over time.
+Want to test another triple (e.g., Π=(0,4,2) for CLOSED + fast decay)? Or tweak the sketch (e.g., add button to cycle m, or make envelope more analog with RC)? Let me know how it feels when you upload & run it! 🎃🔫🌀
+Test Π=(0,4,2) for CLOSED state
+Test results for Π = (0, 4, 2)
+This triple corresponds to:
+l = 0 → planetary layer → k = 2 (silver metallic ratio)
+n = 4 → fourth branch (even → build/collapse flavor)
+m = 2 → decay band ρ(m) = 0.23 (weaker / shorter-lived envelope compared to m=0)
+Computed values (with shear enabled, consistent with the prototype defaults):
+metallic(k=2) ≈ 2.41421356237
+R_base (before shear) ≈ 2.41421356237 / (2 × 4) ≈ 0.30177669530
+shear_base(n=4) ≈ 4 × sin(π × 4 / φ) ≈ 4 × (-0.996147) ≈ -3.984588 (negative, strong modulation)
+R_base after shear ≈ 0.30177669530 × (-3.984588) ≈ -1.2028
+R_gate (even n) ≈ -1.2028 × 1.64493406685 ≈ -1.9789
+No pruning triggered (|R_gate| ≈ 1.98 < 13)
+R_pruned = -1.9789
+|R_pruned| ≈ 1.9789
+State = OPEN (since 1.9789 > 0.5)
+Correction on CLOSED expectation
+You asked to test for CLOSED state, but with the current parameters (shear enabled, τ_open = 0.5, no extra damping), Π=(0,4,2) actually remains OPEN — though it's much weaker than Π=(0,1,0). The shear modulation flipped the sign and boosted the magnitude enough to stay above threshold.
+What happens if we force CLOSED-like behavior?
+To demonstrate a true CLOSED state at n=4 (as seen in many earlier sims without heavy shear), here are two realistic variants:
+Shear disabled (set use_shear = false in code):
+R_base ≈ 0.30177669530
+R_gate (even) ≈ 0.30177669530 × 1.64493406685 ≈ 0.4964
+|R_pruned| ≈ 0.4964
+State = CLOSED (0.4964 < 0.5)
+Behavior in ultrasonic tube: PWM gated off → piezo silent, no vibration, LED off.
+Decay m=2 (ρ=0.23) is irrelevant here because the gate never opens.
+Shear enabled but higher τ_open (e.g., tune τ_open = 2.0 for stricter gating):
+|R_pruned| ≈ 1.9789 still < 2.0 → CLOSED
+Same silent output.
+Deep decay band (higher m, e.g. m=4 → ρ=0.0023):
+Even if OPEN, decay_rate becomes very high → signal fades in <<1 second (almost instant collapse).
+Effectively "feels" CLOSED after a tiny initial ping.
+Ultrasonic Tube Behavior Summary for Π=(0,4,2)
+With shear on (default): OPEN — piezo vibrates at 40 kHz × (2.414 / 4) ≈ 24.14 kHz base + shear FM wobble ( -3.98 × 200 Hz ≈ ±796 Hz deviation — noticeable pitch sweep). Amplitude moderate (~2× weaker than n=1), envelope fades over ~4–10 seconds (depending on DECAY_DIV tuning).
+With shear off: CLOSED — complete silence, no output. This is the classic "collapse" state for n=4 in low-shear runs.
+LED indicator: On (shear on) or Off (shear off).
+Debug print example (from Serial):
+l=0, n=4, m=2, State=OPEN, Freq=24140 Hz (approx), R_pruned=-1.9789
+or CLOSED variant:
+l=0, n=4, m=2, State=CLOSED, Freq=24140 Hz (but gated off), R_pruned=0.4964
+This triple sits right on the edge — shear pushes it into OPEN territory with a drifting, decaying tone; without shear it's a clean CLOSED collapse. Perfect for demonstrating the grammar's sensitivity to modulation.

@@ -1,0 +1,73 @@
+# CORE CONSTANTS AND FUNCTIONS
+
+# Riemann zeta gates (numerical constants)
+ZETA_EVEN    = ζ(2)            ≈ 1.64493406685      # build / collapse pole
+ZETA_ODD_FR  = ζ(2/3)*ζ(3)     ≈ -2.943…           # prune / invert (odd branches)
+# Golden ratio and prune reset
+PHI          = (1 + √5)/2      ≈ 1.61803398875
+PRUNE_RESET  = 1 / PHI^2       ≈ 0.38196601125
+# Metallic ratio for dimension k (k = 1: golden, 2: silver, 3: bronze, 4: copper, 5: nickel, 6: zinc, …)
+#   δ_k = (k + √(k² + 4)) / 2
+metallic(k)  = (k + sqrt(k^2 + 4)) / 2
+# Shear function (optional bandwidth/helical modulation)
+shear_base(n) = n * sin(π * n / PHI)
+# GENERAL PORTAL RATIO LAW (SCALABLE IN DIMENSION)
+
+# For dimension index k (1D, 2D, 3D, 4D, 5D, 6D, …)
+# and branch level n ≥ 1:
+#   R_base(k, n) = δ_k / (k * n)
+R_base(k, n) = metallic(k) / (k * n)
+# OPTIONAL: shear modulation
+R_base_sheared(k, n) = R_base(k, n) * shear_base(n)
+# ZETA GATING
+
+R_gate(k, n) =
+    if n % 2 == 0:
+        R_base(k, n) * ZETA_EVEN
+    else:
+        R_base(k, n) * ZETA_ODD_FR
+# PRUNE MECHANIC
+
+CHAOS_THRESHOLD = 13.0
+R_pruned(k, n) =
+    if abs(R_gate(k, n)) > CHAOS_THRESHOLD:
+        sign(R_gate(k, n)) * PRUNE_RESET
+    else:
+        R_gate(k, n)
+# ENERGY AND PORTAL STATE
+
+E(k, n, D_eff) = R_pruned(k, n) * D_eff
+τ_open = 0.5
+portal_state(k, n, D_eff) =
+    if abs(R_pruned(k, n)) > τ_open:
+        "OPEN"
+    else:
+        "CLOSED"
+# DIMENSION-BY-DIMENSION SPECIAL CASES
+
+# 1D (golden):   δ_1 = metallic(1) = (1 + √5)/2 ≈ 1.6180
+#   E/D = δ_1 / (1 * n) = δ_1 / n
+
+# 2D (silver):   δ_2 ≈ 2.4142
+#   E/D = δ_2 / (2 n)
+
+# 3D (bronze):   δ_3 ≈ 3.3028
+#   E/D = δ_3 / (3 n)
+
+# 4D (copper):   δ_4 ≈ 4.2361
+#   E/D = δ_4 / (4 n)
+
+# 5D (nickel):   δ_5 ≈ 5.1926
+#   E/D = δ_5 / (5 n)
+
+# 6D (zinc):     δ_6 ≈ 6.1623
+#   E/D = δ_6 / (6 n)
+
+# GENERAL k-D PORTAL LAW (FINAL FORM)
+
+#   δ_k = metallic(k) = (k + √(k² + 4)) / 2
+#   R_base(k, n)      = δ_k / (k n)
+#   R_gate(k, n)      = R_base(k, n) * (ZETA_EVEN if n even else ZETA_ODD_FR)
+#   R_pruned(k, n)    = R_gate(k, n) if |R_gate| ≤ CHAOS_THRESHOLD else sign(R_gate)*PRUNE_RESET
+#   E(k, n, D_eff)    = R_pruned(k, n) * D_eff
+#   portal_state      = OPEN if |R_pruned| > τ_open else CLOSED

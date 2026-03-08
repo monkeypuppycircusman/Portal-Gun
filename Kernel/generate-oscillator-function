@@ -1,0 +1,16 @@
+python
+# Inside generate_oscillator after computing rp, abs_rp, state
+if state == "CLOSED":
+    return t, np.zeros_like(t), state
+
+# Decay from band m
+rho_m = 23 * (10 ** -m)
+decay_rate = rho_m / 5.0  # Tune divisor for 1–10 s lifetimes
+
+# FM from shear
+fm_dev = 20.0  # Hz
+if use_shear:
+    freq += shear_base(n) * fm_dev
+
+# Harmonic content (branch n multiplies)
+signal = np.sin(2 * np.pi * freq * t * n)  # stronger harmonics for higher n

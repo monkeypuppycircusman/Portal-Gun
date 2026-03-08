@@ -1,0 +1,108 @@
+# 0. CONSTANTS
+
+c              = 3.0e5 km/s                 # speed of light
+PHI            = (1 + √5)/2                 # golden ratio
+PRUNE_RESET    = 1 / PHI^2
+ZETA_EVEN      = ζ(2)                       # ≈ 1.644934...
+ZETA_ODD_FR    = ζ(2/3) * ζ(3)              # ≈ -2.943...
+CHAOS_THRESHOLD = 13.0
+τ_open         = 0.5                        # portal open threshold (|R_pruned|)
+# Metallic ratio for dimension k
+metallic(k) = (k + sqrt(k^2 + 4)) / 2      # δ_k
+# Optional shear (bandwidth / twist)
+shear_base(n) = n * sin(π * n / PHI)
+# 1. HIERARCHICAL LAYERS AND FRAMES
+
+# Layer index l and effective dimension index k(l):
+
+# l = 0: Planet around star
+#   Frame F_0: heliocentric
+#   v_char(0) ≈ 30 km/s
+#   k(0) ≈ 2   (orbital plane ~ 2D / silver)
+
+# l = 1: Star system in galaxy
+#   Frame F_1: galactic center
+#   v_char(1) ≈ 230 km/s
+#   k(1) ≈ 3   (galactic disk ~ 3D / bronze)
+
+# l = 2: Galaxy in group/cluster
+#   Frame F_2: group/cluster barycenter
+#   v_char(2) ≈ 150 km/s (order 100–200)
+#   k(2) ≈ 4   (cluster embedding ~ 4D / copper)
+
+# l = 3: Galaxy/cluster in filament/supercluster
+#   Frame F_3: filament spine / supercluster
+#   v_char(3) ≈ 500 km/s (order 300–1000)
+#   k(3) ≈ 5   (filament in web ~ 5D / nickel)
+
+# l = 4: Bulk motion in spacetime (CMB frame)
+#   Frame F_4: CMB rest
+#   v_char(4) ≈ 600 km/s (CMB dipole)
+#   k(4) ≈ 6   (cosmic embedding ~ 6D / zinc)
+
+# Dimensionless speed per layer:
+v_norm(l) = v_char(l) / c
+# 2. PORTAL RATIO LAW (PER DIMENSION k, BRANCH n)
+
+# Base ratio:
+R_base(k, n) = metallic(k) / (k * n)
+# Optional shear:
+R_base_sheared(k, n) = R_base(k, n) * shear_base(n)
+# Zeta gating (use R_base or R_base_sheared):
+R_gate(k, n) =
+    if n % 2 == 0:
+        R_base(k, n) * ZETA_EVEN
+    else:
+        R_base(k, n) * ZETA_ODD_FR
+# Prune:
+R_pruned(k, n) =
+    if abs(R_gate(k, n)) > CHAOS_THRESHOLD:
+        sign(R_gate(k, n)) * PRUNE_RESET
+    else:
+        R_gate(k, n)
+# 3. PORTAL STATE AND MODEL VELOCITY
+
+# Effective dimensional size (can set D_eff = 1 for normalized sims):
+E(k, n, D_eff) = R_pruned(k, n) * D_eff
+portal_state(k, n, D_eff) =
+    if abs(R_pruned(k, n)) > τ_open:
+        "OPEN"
+    else:
+        "CLOSED"
+# Map to a velocity proxy at layer l:
+# k = k(l) from the layer mapping above.
+# R_calib is a tuning factor so that v_model(l, n=1) ≈ v_char(l) if desired.
+
+v_model(l, n) = v_char(l) * abs(R_pruned(k(l), n)) / R_calib
+# 4. DECAY BANDS (23 → 2.3 → 0.23 → 0.023 ...)
+
+# Define hierarchical band sequence:
+ρ(m) = 23 * 10^(-m)          # m = 0,1,2,...
+# Normalized bands (if you want ~O(1) values):
+ρ̃(m) = 2.3 * 10^(-m)        # 2.3, 0.23, 0.023, ...
+# Candidate "resonant" portal coordinates are (l, n, m) such that:
+#   abs(R_pruned(k(l), n)) ≈ ρ̃(m) / N
+# or equivalently:
+#   log10( abs(v_model(l, n) / v_char(l)) ) ≈ log10(ρ̃(m))
+# where N is a chosen normalization constant.
+
+
+# 5. PORTAL ADDRESSING (WHERE DOES IT GO?)
+
+# Define a portal address triple:
+#   Π = (l, n, m)
+# where:
+#   l = layer index (0..4)
+#   n = branch / harmonic index (1,2,3,...)
+#   m = decay band index (0,1,2,...)
+
+# Valid endpoint conditions:
+#   1) Stability: abs(R_pruned(k(l), n)) > τ_open
+#   2) Band match: abs(R_pruned(k(l), n)) ≈ ρ̃(m) / N
+#   3) Physical anchor: there exists a real object/region in layer l
+#      whose measured v_norm(l) can be mapped to this (l, n, m)
+#      via the chosen calibration.
+
+# A "portal" in this model is then a mapping:
+#   Π_src = (l_s, n_s, m_s)  →  Π_dst = (l_t, n_t, m_t)
+# with both endpoints satisfying the validity conditions above.

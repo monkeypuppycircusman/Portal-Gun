@@ -1,0 +1,6 @@
+The Absolute Minimal Kernel
+E / D = shear(n) / n
+
+where:
+shear(n) = n × sin(π × n / φ)     # or sin(2π × n / φ) if you prefer tighter cycles
+n         = π                     # or n steps in multiples of π radians (full cycle)

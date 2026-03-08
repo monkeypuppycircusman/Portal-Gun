@@ -1,0 +1,174 @@
+cpp
+// Full Arduino Sketch for Ultrasonic Portal Resonator
+// Implements the portal grammar as an ultrasonic "tube" prototype.
+// - Layers (l) map to base frequency bands.
+// - Branches (n) map to harmonic multipliers and duty cycles.
+// - Decay bands (m) map to envelope decay rates.
+// - OPEN/CLOSED gates the output (PWM on/off).
+// - Shear adds FM-like frequency wobble.
+// - Pruning caps chaos with a reset burst.
+// 
+// Hardware: Arduino Nano/Uno, MOSFET driver (e.g., IRLZ44N), Piezo transducer (40-200 kHz).
+// Connect: PWM pin 9 to MOSFET gate (via 100Ω resistor), MOSFET drain to Piezo +, source to GND, Piezo - to 12V.
+// Optional: Button on pin 2 to cycle parameters, LED on pin 13 for OPEN indication.
+//
+// Tune: Adjust PWM_FREQ_BASE, FM_DEV, DECAY_DIV for your piezo.
+// Build: Upload to Arduino, serial monitor for debug.
+
+#include <Arduino.h>
+#include <math.h>  // For sqrt, sin, etc.
+
+// Constants from portal model
+#define PHI (1.0 + sqrt(5.0)) / 2.0
+#define PRUNE_RESET 1.0 / (PHI * PHI)
+#define ZETA_EVEN 1.6449340668482264  // ζ(2)
+#define ZETA_ODD_FR -2.942131320030111  // ζ(2/3) * ζ(3)
+#define CHAOS_THRESHOLD 13.0
+#define TAU_OPEN 0.5
+
+// Hardware pins
+#define PWM_PIN 9      // PWM output to MOSFET gate
+#define LED_PIN 13     // LED for OPEN state
+#define BUTTON_PIN 2   // Button to cycle (l, n, m)
+
+// Tunable parameters
+#define PWM_FREQ_BASE 40000  // Base ultrasonic freq (Hz, e.g., 40 kHz for common piezos)
+#define FM_DEV 200.0         // Shear FM deviation (Hz)
+#define DECAY_DIV 5.0        // Divisor for decay rate (tune for 1-10s fade)
+#define BURST_MS 100         // Prune reset burst duration (ms)
+#define DUTY_CYCLE_OPEN 128  // PWM duty 0-255 (50% = 128)
+#define DUTY_CYCLE_CLOSED 0
+#define LOOP_DELAY 100       // Main loop delay (ms) for parameter changes
+
+// Layer mapping (l to k)
+int k_from_l(int l) {
+  switch (l) {
+    case 0: return 2;  // silver
+    case 1: return 3;  // bronze
+    case 2: return 4;  // copper
+    case 3: return 5;  // nickel
+    case 4: return 6;  // zinc
+    default: return 2;
+  }
+}
+
+// Metallic ratio
+double metallic(int k) {
+  return (k + sqrt(k * k + 4.0)) / 2.0;
+}
+
+// Shear base
+double shear_base(int n) {
+  return n * sin(M_PI * n / PHI);
+}
+
+// R_base (with optional shear)
+double r_base(int k, int n, bool use_shear) {
+  double rb = metallic(k) / (k * n);
+  if (use_shear) rb *= shear_base(n);
+  return rb;
+}
+
+// R_gate
+double r_gate(int k, int n, bool use_shear) {
+  double rb = r_base(k, n, use_shear);
+  return (n % 2 == 0) ? rb * ZETA_EVEN : rb * ZETA_ODD_FR;
+}
+
+// R_pruned
+double r_pruned(int k, int n, bool use_shear) {
+  double rg = r_gate(k, n, use_shear);
+  if (fabs(rg) > CHAOS_THRESHOLD) {
+    return (rg > 0 ? 1 : -1) * PRUNE_RESET;
+  }
+  return rg;
+}
+
+// Rho(m) decay
+double rho_m(int m) {
+  return 23.0 * pow(10.0, -m);
+}
+
+// Global state
+int current_l = 0;  // 0-4
+int current_n = 1;  // >=1
+int current_m = 0;  // >=0
+bool use_shear = true;  // Default on
+
+void setup() {
+  pinMode(PWM_PIN, OUTPUT);
+  pinMode(LED_PIN, OUTPUT);
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  Serial.begin(9600);  // For debug
+  analogWrite(PWM_PIN, DUTY_CYCLE_CLOSED);  // Start off
+  Serial.println("Ultrasonic Portal Resonator Ready");
+}
+
+void loop() {
+  // Check button to cycle parameters (simple: press to increment n, long press for l, etc.)
+  if (digitalRead(BUTTON_PIN) == LOW) {
+    delay(200);  // Debounce
+    current_n = (current_n % 5) + 1;  // Cycle n 1-5
+    Serial.print("Cycled to n=");
+    Serial.println(current_n);
+  }
+
+  // Compute portal rules
+  int k = k_from_l(current_l);
+  double rp = r_pruned(k, current_n, use_shear);
+  double abs_rp = fabs(rp);
+  bool is_open = abs_rp > TAU_OPEN;
+
+  // Frequency: base scaled by metallic / n + shear FM
+  double freq = PWM_FREQ_BASE * (metallic(k) / current_n);
+  if (use_shear) freq += shear_base(current_n) * FM_DEV;
+
+  // Clamp freq to valid PWM range (e.g., 1-500 kHz)
+  freq = constrain(freq, 1000, 500000);
+
+  // Decay rate (affects burst duration simulation; for true envelope, add RC or software fade)
+  double decay_rate = rho_m(current_m) / DECAY_DIV;
+
+  // Gate output
+  if (is_open) {
+    digitalWrite(LED_PIN, HIGH);
+    // Set PWM frequency (Arduino hack: use Timer1 for variable freq)
+    // Note: For precise freq, use Timer1 lib or Teensy for better PWM
+    TCCR1A = 0xA1;  // Fast PWM mode
+    TCCR1B = 0x09;  // No prescaler
+    ICR1 = F_CPU / freq;  // Set TOP for freq
+    OCR1A = ICR1 / 2;     // 50% duty (adjust for n odd/even)
+    if (current_n % 2 != 0) OCR1A = ICR1 / 4;  // Invert flavor: 25% duty for prune
+
+    // Simulate decay: Run for duration ~1/decay_rate seconds, then fade (simple on/off here)
+    delay(1000 / decay_rate);  // Burst duration (ms)
+    analogWrite(PWM_PIN, DUTY_CYCLE_OPEN);
+  } else {
+    digitalWrite(LED_PIN, LOW);
+    analogWrite(PWM_PIN, DUTY_CYCLE_CLOSED);
+  }
+
+  // Prune check (already in r_pruned, but add burst if triggered)
+  if (fabs(r_gate(k, current_n, use_shear)) > CHAOS_THRESHOLD) {
+    // Reset burst: Full duty short pulse
+    analogWrite(PWM_PIN, 255);
+    delay(BURST_MS);
+    analogWrite(PWM_PIN, DUTY_CYCLE_CLOSED);
+  }
+
+  // Debug print
+  Serial.print("l=");
+  Serial.print(current_l);
+  Serial.print(", n=");
+  Serial.print(current_n);
+  Serial.print(", m=");
+  Serial.print(current_m);
+  Serial.print(", State=");
+  Serial.print(is_open ? "OPEN" : "CLOSED");
+  Serial.print(", Freq=");
+  Serial.print(freq);
+  Serial.print(" Hz, R_pruned=");
+  Serial.println(rp);
+
+  delay(LOOP_DELAY);  // Throttle loop
+}

@@ -1,0 +1,12 @@
+bare essence:
+Core oscillator rule (watch-friendly version)
+amplitude(n) = sin(π × n / φ) × exp(-n / τ)    # or sin(2π × n / φ) if you prefer tighter cycles
+Where:
+φ = (1 + √5)/2 ≈ 1.618 (golden ratio) — keeps the irrational beauty and natural decay rhythm
+n = discrete "branch" or "tick" index (increments slowly, e.g. every 1–5 seconds on the watch)
+τ = decay time constant (tune to 5–20 for human-perceptible fade, like 5–20 seconds ring-down)
+Then apply simple gating:
+if |amplitude(n)| > threshold (e.g. 0.5):
+    → haptic pulse / LED glow / tiny piezo buzz = "OPEN" state
+else:
+    → silent / dim = "CLOSED"

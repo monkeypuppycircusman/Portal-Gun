@@ -1,0 +1,27 @@
+cpp
+// Pseudo-code for watch resonator
+float phi = (1.0 + sqrt(5.0)) / 2.0;
+int n = 1;           // increments slowly (button or timer)
+float tau = 8.0;     // decay time constant in "ticks"
+
+void loop() {
+  float amp_pi  = sin(M_PI * n / phi) * exp(-n / tau);
+  float amp_2pi = sin(2 * M_PI * n / phi) * exp(-n / tau);
+
+  // Choose one (or blend/switch via setting)
+  float amp = amp_pi;  // or amp_2pi for faster pulses
+
+  if (abs(amp) > 0.5) {
+    // OPEN light zone — tunnel active
+    vibrateShortPulse(map(abs(amp), 0.5, 1.0, 50, 200));  // stronger = longer buzz
+    ledGlow(map(abs(amp), 0.5, 1.0, 64, 255));            // brighter glow
+  } else {
+    // CLOSED — no tunnel
+    vibrateOff();
+    ledOff();
+  }
+
+  delay(2000);  // tick every 2 seconds (slow enough for watch)
+  n++;          // advance branch
+  if (n > 30) n = 1;  // loop or reset
+}

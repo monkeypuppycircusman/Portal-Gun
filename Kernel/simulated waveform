@@ -1,0 +1,6 @@
+Simulated Waveform for Π=(0,4,2)
+For this triple (l=0 → k=2 silver, n=4 even branch, m=2 → ρ=0.23 moderate decay), the state depends on shear modulation as noted earlier. Here's the breakdown:
+With shear enabled (default in code): State = OPEN (|R_pruned| ≈1.98 > 0.5). The waveform is a damped sine oscillation: starts at moderate amplitude (~2 units scaled from |R_pruned|), oscillates at ~24 kHz base freq with FM wobble (±796 Hz), and decays exponentially over ~4–10 seconds (faster than m=0 due to ρ=0.23, but still noticeable ring-down). This mimics a "tunneling" resonance that fades like a cosmic velocity band.
+With shear disabled (or tuned τ_open higher): State = CLOSED (|R_pruned| ≈0.496 < 0.5). The waveform is a flat zero line — no oscillation, immediate collapse/silence. In the ultrasonic tube, this means no piezo drive, dead quiet.
+The simulated curve below represents the OPEN case (damped sine with exponential envelope, initial strong bursts decaying to zero). For CLOSED, imagine a straight horizontal line at amplitude=0 (no signal).
+This plot shows the characteristic decay: high-frequency sine enveloped by a falling exponential, exactly what the piezo would output in OPEN mode (amplitude starts at ~|R_pruned| =1.98, fades per decay_rate ≈0.046 if DECAY_DIV=5).

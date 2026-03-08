@@ -1,0 +1,19 @@
+python
+# Pseudo-code snippet for octave selection
+float phi = (1.0 + sqrt(5.0)) / 2.0;
+float base_freq = 32768.0;          // quartz master
+int n = current_branch;             // slow n from 1–30 or looped
+
+float phase = M_PI * n / phi;       // or 2*M_PI for tighter
+float amp = sin(phase) * exp(-n / 12.0);
+
+// Map amplitude to octave shift (higher amp = higher octave for "cool factor")
+int octave = 3 + (int)(abs(amp) * 5);  // e.g., amp 0.6 → octave 6 (~1024 Hz)
+float output_freq = base_freq / pow(2.0, octave);
+
+// Gate & drive piezo/haptic
+if (abs(amp) > 0.6) {
+  tone(PIEZO_PIN, output_freq, 200);  // short burst at selected octave
+  // Intensity scales with amp
+  analogWrite(HAPTIC_PIN, map(abs(amp), 0.6, 1.0, 100, 255));
+}

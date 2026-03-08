@@ -1,0 +1,89 @@
+python
+import numpy as np
+import matplotlib.pyplot as plt
+from mpmath import mp, zeta  # For high-precision zeta
+mp.dps = 15
+
+# Constants
+PHI = (1 + np.sqrt(5)) / 2
+PRUNE_RESET = 1 / PHI**2
+ZETA_EVEN = float(mp.pi**2 / 6)  # ζ(2) ≈1.644934
+ZETA_ODD_FR = float(zeta(mp.mpf('2/3')) * zeta(3))  # ≈-2.94213
+CHAOS_THRESHOLD = 13.0
+TAU_OPEN = 0.5
+
+def metallic(k):
+    return (k + np.sqrt(k**2 + 4)) / 2
+
+def shear_base(n):
+    return n * np.sin(np.pi * n / PHI)
+
+def r_base(k, n, use_shear=False):
+    rb = metallic(k) / (k * n)
+    if use_shear:
+        rb *= shear_base(n)
+    return rb
+
+def r_gate(k, n, use_shear=False):
+    rb = r_base(k, n, use_shear)
+    if n % 2 == 0:
+        return rb * ZETA_EVEN
+    else:
+        return rb * ZETA_ODD_FR
+
+def r_pruned(k, n, use_shear=False):
+    rg = r_gate(k, n, use_shear)
+    if abs(rg) > CHAOS_THRESHOLD:
+        return np.sign(rg) * PRUNE_RESET
+    return rg
+
+# Layer mapping
+layers = {
+    0: {'k': 2, 'v_char': 29.78},  # Planetary
+    1: {'k': 3, 'v_char': 230},    # Galactic
+    2: {'k': 4, 'v_char': 150},    # Group/cluster
+    3: {'k': 5, 'v_char': 500},    # Filament
+    4: {'k': 6, 'v_char': 600}     # Cosmic/CMB
+}
+
+# Oscillator generator
+def generate_oscillator(l, n, m, use_shear=True, fs=44100, duration=5):
+    k = layers[l]['k']
+    rp = r_pruned(k, n, use_shear)
+    abs_rp = abs(rp)
+    state = "OPEN" if abs_rp > TAU_OPEN else "CLOSED"
+    
+    t = np.linspace(0, duration, int(fs * duration))
+    if state == "CLOSED":
+        return t, np.zeros_like(t), state
+    
+    # Decay band ρ(m) = 23 * 10^{-m}, normalized to rate
+    rho_m = 23 * 10**(-m)
+    decay_rate = rho_m / 10  # Tune for audible fade (e.g., /10 for ~seconds)
+    
+    # Frequency: base scaled by metallic / n (rigidity decay)
+    f_base = 440  # Tunable "tube" freq (Hz)
+    freq = f_base * metallic(k) / n
+    if use_shear:
+        shear_mod = shear_base(n)
+        freq += shear_mod * 10  # FM deviation (Hz)
+    
+    # Signal: sine with n-harmonic multiplier
+    signal = np.sin(2 * np.pi * freq * t * n)
+    
+    # Envelope: exponential decay * amplitude from |R_pruned|
+    envelope = np.exp(-decay_rate * t) * abs_rp
+    
+    return t, signal * envelope, state
+
+# Example: Simulate l=0 (planetary), n=1-3, m=0 (band 23)
+for n in [1, 2, 3]:
+    t, sig, state = generate_oscillator(0, n, 0)
+    print(f"n={n}: State={state}, Max Amp={np.max(np.abs(sig)):.4f}")
+    
+    plt.figure()
+    plt.plot(t[:1000], sig[:1000])  # First ~0.02s for viz
+    plt.title(f'DSP Resonator: l=0, n={n}, m=0 ({state})')
+    plt.xlabel('Time (s)')
+    plt.ylabel('Amplitude')
+    plt.show()

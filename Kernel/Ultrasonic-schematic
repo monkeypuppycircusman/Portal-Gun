@@ -1,0 +1,83 @@
+Ultrasonic Schematic Sketch (Acoustic Resonator – Easiest to Build & Test)
+Goal: A handheld ultrasonic "tube" using a piezo transducer (40–200 kHz common range) driven by Arduino/Teensy PWM. OPEN = strong resonance tone/vibration, CLOSED = silent/gated off. Decay m fades the envelope (like lifetime in cosmic bands). Shear modulates frequency slightly for "drift".
+Core Components (total ~$15–30):
+Microcontroller: Arduino Nano / Uno / Teensy 4.x (for fast PWM & computation)
+Piezo transducer: 40 kHz cleaning type or 100–200 kHz medical/cleaning (e.g., 16–60 mm dia, 10–60 W rating)
+MOSFET: Logic-level N-channel (IRL540 / IRLZ44N / BSS138 for low power)
+Resistor: 100–220 Ω gate, optional 10–100 Ω series with piezo
+Inductor (optional boost): 1–10 mH for resonant peaking (higher voltage swing)
+Power: 5–12 V battery/USB (higher V = louder, but watch piezo rating)
+Optional: Op-amp (LM358) for envelope control, small speaker/mic for audible feedback
+Schematic Description (Text Sketch – Imagine This as Breadboard/PCB)
++5–12V ───────┬──────────────────────────────┐
+              │                              │
+              ├──────┬───────────────────────┤
+              │      │                       │
+             R_gate  MOSFET (N-ch)           Piezo Transducer
+              │      D ┌───────┐             ┌───────┐
+PWM from MCU ─┴────── G │       │────── L ────┤       │  (optional series L for resonance)
+                     S └───────┘             └───────┘
+                         │                       │
+                        GND                     GND
+
+Envelope control variant (analog gain):
+MCU PWM (envelope) ──► Low-pass filter (RC) ──► Op-amp non-inverting input
+                                           └─► Op-amp output ──► MOSFET gate (instead of direct PWM)
+How It Maps Your Grammar
+Layer l → Base PWM frequency band: e.g., l=0 (planetary) → ~40 kHz, l=1 → ~100 kHz, l=2–4 → 150–250 kHz (scale metallic(k) × center_freq / k)
+Branch n → PWM duty cycle or harmonic multiplier: n even = 50% duty (stable build), n odd = inverted/pulsed (prune flavor). Use tone() or analogWriteFrequency() for variable freq.
+Decay m → Envelope decay rate: exp(-ρ(m) t) via MCU timer or analog RC on gate. Higher m = faster fade (short resonance "lifetime").
+R_pruned & OPEN/CLOSED → Gate: If |R_pruned| > 0.5 → enable PWM output; else duty=0 (silent). Amplitude proportional to |R_pruned| (via PWM duty or op-amp gain).
+Shear → FM: Add small freq deviation = shear_base(n) × 50–200 Hz (MCU adjusts PWM freq dynamically).
+Pruning → If |R_gate| >13 → force short reset burst (e.g., 100 ms white noise or full-off).
+Build steps: 
+Wire MOSFET low-side driver (safe for piezo).
+Upload code computing your full pipeline (R_pruned etc.) per loop.
+Test: Dial (l,n,m) via buttons/encoder → hear/feel vibration change.
+Measure: Phone spectrum app or oscilloscope on piezo leads.
+This gives immediate "tunneling" feedback: OPEN states buzz/vibrate strongly with decaying tone, CLOSED = dead silence, n-shifts change pitch/harmonics, m-controls how long it rings.
+2. RF Block Diagram (Microwave/UHF Cavity-Like Resonator – Next Level)
+Goal: Closer to "black hole tube" physics — discrete cavity modes as energy bands, gain/attenuation as OPEN/CLOSED, Q-factor as decay bands.
+Core Components (total ~$50–200 starter):
+Microcontroller/SDR: Raspberry Pi + HackRF One / LimeSDR Mini / ADALM-Pluto (~$100–300) for control & monitoring
+VCO/PLL: ADF4351 or Si5351 module (~$10–30) for tunable LO
+Cavity/filter: DIY coaxial stub (copper pipe + SMA) or printed microstrip resonator (FR4 PCB) for UHF (433/915 MHz) or microwave (2.4/5.8 GHz)
+Amplifier/attenuator: Mini-Circuits ERA or PGA series MMIC (~$5–20), PIN diode or varactor for gating
+Coupler/detector: Directional coupler + diode detector for feedback
+Power: 5 V USB + 12 V for amps
+Block Diagram (Text Layout – Signal Flow)
+[Control MCU / Pi] ──► Compute Portal Rules (l,n,m → R_pruned, state, shear FM)
+                     │
+                     ├─► Frequency Control ──► VCO/PLL (ADF4351/Si5351)
+                     │     - Base freq = f_center(l) × (metallic(k)/n)   [e.g., 433 MHz base for l=0]
+                     │     - + shear_mod × dev (50 kHz–1 MHz FM for drift)
+                     │
+                     ├─► Gate Control ──► PIN Diode / VCA / Switch
+                     │     - OPEN (|R_pruned|>0.5): low attenuation / high gain
+                     │     - CLOSED: high attenuation / off
+                     │     - Gain ∝ |R_pruned| (via VCA voltage)
+                     │
+                     └─► Envelope/Decay ──► Analog or digital multiplier
+                           - Decay time ∝ 1/ρ(m) (long ring for low m, fast ring-down for high m)
+                           - Implemented as slow AGC loop or MCU-timed burst
+
+[RF Path]
+VCO output ──► Gate/Attenuator ──► Power Amp (MMIC) ──► Coupling Loop into Cavity
+                                                        │
+                                                        ├─► Cavity Resonator (coax stub / microstrip / reentrant)
+                                                        │     - Tuned to ~metallic(k) multiples (discrete modes = layers/branches)
+                                                        │     - Q-factor tuned by loading or varactor (maps to m-decay)
+                                                        └─► Output Coupling Loop ──► Detector / SDR RX
+                                                                              - Feedback to MCU for resonance lock / state viz
+How It Maps Your Grammar
+Layer l → Cavity mode/freq band (e.g., l=0 low UHF, l=4 microwave harmonics).
+Branch n → Harmonic injection or mode selection (VCO × n).
+Decay m → Loaded Q or ring-down time (higher m = more damping = faster decay).
+OPEN/CLOSED → RF switch/gate (PIN diode on/off or VCA gain).
+Shear → FM on VCO (cross-layer "drift" as frequency wobble).
+Pruning → If chaos → force high attenuation burst or mode hop.
+Build steps:
+Start with Si5351 breakout + PIN diode switch for proof-of-concept (no cavity yet).
+Add stub cavity (λ/4 coax shorted one end) tuned to ~your metallic ratios.
+Monitor with RTL-SDR or phone SDR app → see peaks appear/disappear per state.
+Ultrasonic first gives quick wins (vibration/audio feedback). RF next adds true cavity resonance feel.

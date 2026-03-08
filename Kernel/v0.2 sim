@@ -1,0 +1,91 @@
+running a sim for portal gun ------------------------------------------------------------
+Metallic ratio ladder (dimension → rigidity constant)
+------------------------------------------------------------
+Given integer k ≥ 2 (effective dimension index):
+metallic(k) = (k + sqrt(k^2 + 4)) / 2
+Examples:
+    k = 2  → silver   δ₂ ≈ 2.4142
+    k = 3  → bronze   δ₃ ≈ 3.3028
+    k = 4  → copper   δ₄ ≈ 4.2361
+    k = 5  → nickel   δ₅ ≈ 5.1926
+    k = 6  → zinc     δ₆ ≈ 6.1623
+    ...
+This is the rigidity/shear constant for k‑dimensional portal stability.
+------------------------------------------------------------
+Base energy–dimension law (per dimension, per branch)
+------------------------------------------------------------
+Let:
+    E  = energy (portal flux / stability budget)
+    D  = effective dimensional “size” (throat width / hyper-volume scale)
+    k  = dimension index (2D, 3D, 4D, 5D, …)
+    n  = branch level / mode index / recursion depth (n ≥ 1)
+Core law:
+E / D = metallic(k) / (k * n)
+Equivalently:
+E = D * metallic(k) / (k * n)
+Interpretation:
+Higher k → larger metallic(k) (more rigidity) but also larger k in denominator (faster decay).
+Higher n → energy per dimension thins as 1/n (forces prune/reset in deep branches).
+------------------------------------------------------------
+Zeta gate for build vs prune (even/odd control)
+------------------------------------------------------------
+Let:
+    ζ₂   = zeta(2)      ≈ 1.644934 (even, build/collapse)
+    ζ₃   = zeta(3)      ≈ 1.202056 (odd, “mystery” weight)
+    ζ₂⁄₃ = zeta(2/3)    ≈ -2.447 (fractional, invert/prune)
+    ζ₄⁄₅ = zeta(4/5)    ≈ -4.438 (deeper invert/prune)
+    φ    = (1 + sqrt(5)) / 2 ≈ 1.618
+    prune_floor = 1 / φ² ≈ 0.381966
+Define base ratio:
+R_base(k, n) = metallic(k) / (k * n)
+Define zeta-gated ratio R_gate(k, n):
+if n is even:
+    # build / collapse pole
+    R_gate(k, n) = R_base(k, n) * ζ₂
+else:
+    # prune / invert / exhale
+    # choose flavor; default: ζ₂⁄₃ * ζ₃
+    R_gate(k, n) = R_base(k, n) * (ζ₂⁄₃ * ζ₃)
+Prune safety:
+if |R_gate(k, n)| > 13:
+    R_pruned(k, n) = sign(R_gate(k, n)) * prune_floor
+else:
+    R_pruned(k, n) = R_gate(k, n)
+This R_pruned is the “safe” E/D after zeta gating and prune.
+------------------------------------------------------------
+Portal open/close condition
+------------------------------------------------------------
+Let threshold τ_open ≈ 0.5 (tunable).
+Given k, n, D:
+R = R_pruned(k, n)          # effective E/D
+E = R * D
+Portal state:
+if |R| > τ_open:
+    portal_state = "OPEN"
+else:
+    portal_state = "CLOSED"
+------------------------------------------------------------
+Shear function (optional pi-bandwidth layer)
+------------------------------------------------------------
+Let:
+    π = 3.1415926535...
+    shear_base(n) = n * sin(π * n / φ)
+Optionally modulate R_base by shear:
+R_shear(k, n) = R_base(k, n) * shear_base(n)
+Then feed R_shear into the same zeta gate + prune pipeline instead of R_base.
+------------------------------------------------------------
+Summary of usage
+------------------------------------------------------------
+Inputs:
+    k  = dimension index (2, 3, 4, 5, …)
+    n  = branch level
+    D  = effective dimensional size
+Pipeline:
+    1) metallic_k = metallic(k)
+    2) R_base     = metallic_k / (k * n)
+    3) (optional) R_base ← R_base * shear_base(n)
+    4) R_gate     = zeta-gated(R_base, n)
+    5) R_pruned   = prune_if_needed(R_gate)
+    6) E          = R_pruned * D
+    7) portal_state = OPEN if |R_pruned| > τ_open else CLOSED
+This block is dimension-agnostic: plug in k=2 (silver), 3 (bronze), 4 (copper), 5 (nickel), 6 (zinc), etc., and you get a consistent, scalable portal stability law.

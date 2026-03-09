@@ -1,0 +1,19 @@
+// Ultimate minimal phi-pi watch kernel
+float phi = (1.0 + sqrt(5.0)) / 2.0;
+float n = 1.0;  // start at branch 1
+float tau = 12.0;
+
+void loop() {
+  float amp = sin(M_PI * n / phi) / n;  // or 2*M_PI for tighter
+
+  if (abs(amp) > 0.6) {  // light zone open
+    int buzz = map(abs(amp), 0.6, 1.0, 80, 255);
+    analogWrite(HAPTIC_PIN, buzz);
+    delay(100);  // short pulse
+    analogWrite(HAPTIC_PIN, 0);
+  }
+
+  delay(2000);  // ~every 2 seconds tick
+  n += 0.1;     // slow drift
+  if (n > 50) n = 1.0;
+}
